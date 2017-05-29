@@ -1,0 +1,27 @@
+{
+  "name": "get_zika_cases_from_paho",
+  "version": "1.0.0",
+  "description": "cp config_sample.js config.js",
+  "main": "config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unicef/get_zika_cases_from_paho.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/unicef/get_zika_cases_from_paho/issues"
+  },
+  "homepage": "https://github.com/unicef/get_zika_cases_from_paho#readme",
+  "dependencies": {
+    "bluebird": "^3.5.0",
+    "get-hrefs": "^1.0.3",
+    "jsonfile": "^3.0.0",
+    "moment": "^2.18.1",
+    "request": "^2.81.0",
+    "xlsx": "^0.10.3"
+  }
+}
