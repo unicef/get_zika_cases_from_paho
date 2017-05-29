@@ -10,6 +10,7 @@ var country_codes = require('./country_codes');
 var index = config.index;
 
 bluebird.each(case_files.filter(f => { return f.match(/^\d{4}/)}), f => {
+  console.log(f);
   var date = moment(f.match(/\d{4}-[a-z]{3}-\d+/)[0]).format('YYYY-MM-DD');
   jsonfile.readFile(raw_dir + f, function(err, obj) {
     return summarize(obj, date)
