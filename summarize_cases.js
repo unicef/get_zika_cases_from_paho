@@ -34,6 +34,7 @@ function summarize(worksheet, date) {
     })
     var object = Object.keys(numbers).reduce((h, n) => {
       h.date = date;
+      h.countries = {};
       if (numbers[n]['A']) {
         // Remove pesky numbers from country names
         var value = numbers[n]['A'].v.replace(/\d+/, '');
@@ -45,7 +46,7 @@ function summarize(worksheet, date) {
             }
             return h2;
           }, {});
-          h[country_codes[value]] = stats;
+          h.countries[country_codes[value]] = stats;
 
         }
       }
