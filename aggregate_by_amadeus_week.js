@@ -1,0 +1,11 @@
+var azure_utils= require('./lib/azure');
+var azure_storage = require('azure-storage');
+var storage_account = config.azure.storage_account;
+var azure_key = config.azure.key1;
+var fileSvc = azure_storage.createFileService(storage_account, azure_key);
+var fs = require('fs');
+var moment = require('moment');
+var bluebird = require('bluebird');
+var config = require('./config');
+var jsonfile = require('jsonfile')
+var json_dir = config.json_dir;
