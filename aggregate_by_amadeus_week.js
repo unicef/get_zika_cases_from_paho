@@ -19,7 +19,7 @@ azure_utils.get_file_list(fileSvc, path)
     return e.name.replace(/.json$/, '');
   }).sort();
 
-  bluebird.reduce(ordered_dates.slice(0,3), (h, e, i) => {
+  bluebird.reduce(ordered_dates, (h, e, i) => {
     return process_file(e, i, ordered_dates, h)
     .then(updated_hash => {
       h = updated_hash;
