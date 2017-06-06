@@ -13,26 +13,31 @@ var bluebird = require('bluebird');
 // var json_dir = config.json_dir;
 var path = '/zika/paho/json';
 
+// Get list of case files.
 azure_utils.get_file_list(fileSvc, path)
 .then(files => {
+  // Make sure list is ordered by date: earliest to latest.
   ordered_dates = files.entries.files.map(e => {
     return e.name.replace(/.json$/, '');
   }).sort();
 
-  bluebird.reduce(ordered_dates, (h, e, i) => {
-    return process_file(e, i, ordered_dates, h)
+  // Download each file
+  bluebird.reduce(ordered_dates.slice(0, 3), (h, e, i) => {
+    return sum_cases_per_week_date(e, i, ordered_dates, h)
     .then(updated_hash => {
       h = updated_hash;
       return h;
     })
   }, {})
   .then(hash => {
-    console.log(Object.keys(hash));
+    console.log(hash);
   })
 });
 
-function process_file(filename, i, ordered_dates, hash) {
+function sum_cases_per_week_date(filename, i, ordered_dates, hash) {
   return new Promise((resolve, reject) => {
+    // Ignore first (ealiest) file for now.
+    // There's now way to divide it into days
     if (i === 0) {
       return resolve(hash);
     }
