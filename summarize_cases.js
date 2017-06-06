@@ -9,15 +9,20 @@ var case_files = fs.readdirSync(raw_dir);
 var country_codes = require('./country_codes');
 var index = config.index;
 
+var promisifiedRead = bluebird.promisify(jsonfile.readFile);
 bluebird.each(case_files.filter(f => { return f.match(/^\d{4}/)}), f => {
   console.log(f);
   var date = moment(f.match(/\d{4}-[a-z]{3}-\d+/)[0]).format('YYYY-MM-DD');
-  jsonfile.readFile(raw_dir + f, function(err, obj) {
+  //return jsonfile.readFile(raw_dir + f, function(err, obj) {
+  //  return summarize(obj, date)
+  //})
+  return promisifiedRead(raw_dir + f).then(function(obj) {
     return summarize(obj, date)
-  })
-})
+  });
+}, {concurrency: 1}).then(() => {console.log('done');process.exit();});
 
 function summarize(worksheet, date) {
+  console.log(date);
   return new Promise((resolve, reject) => {
     var numbers = {};
     Object.keys(worksheet).forEach(k => {
@@ -32,9 +37,9 @@ function summarize(worksheet, date) {
         numbers[number][letter] = worksheet[k];
       }
     })
+    var countries = {};
     var object = Object.keys(numbers).reduce((h, n) => {
       h.date = date;
-      h.countries = {};
       if (numbers[n]['A']) {
         // Remove pesky numbers from country names
         var value = numbers[n]['A'].v.replace(/\d+/, '');
@@ -46,10 +51,11 @@ function summarize(worksheet, date) {
             }
             return h2;
           }, {});
-          h.countries[country_codes[value]] = stats;
-
+          //h.countries[country_codes[value]] = stats;
+          countries[country_codes[value]] = stats;
         }
       }
+          h.countries = countries; 
           return h;
     }, {})
     fs.writeFile(json_dir + date + '.json', JSON.stringify(object), err => {
@@ -60,5 +66,4 @@ function summarize(worksheet, date) {
       resolve();
     })
   })
-
 }
