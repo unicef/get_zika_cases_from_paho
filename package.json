@@ -17,8 +17,11 @@
   },
   "homepage": "https://github.com/unicef/get_zika_cases_from_paho#readme",
   "dependencies": {
+    "argparse": "^1.0.9",
+    "async": "^2.4.1",
     "azure-storage": "^2.1.0",
     "bluebird": "^3.5.0",
+    "csvtojson": "^1.1.6",
     "get-hrefs": "^1.0.3",
     "jsonfile": "^3.0.0",
     "moment": "^2.18.1",
