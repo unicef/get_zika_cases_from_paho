@@ -72,9 +72,13 @@ function get_bucket_dates_hash(daily_country_cases_hash) {
     if (h[bucket_date]) {
       //console.log(date, bucket_date, h[bucket_date]['per'].new_cases_per_day)
       Object.keys(daily_country_cases_hash[date]).forEach(c => {
-        h[bucket_date][c].total_this_week = h[bucket_date][c].total_this_week || 0;
-        // if (c === 'per' && bucket_date === '2016-11-21') { console.log(daily_country_cases_hash[date][c])}
-        h[bucket_date][c].total_this_week += daily_country_cases_hash[date][c].new_cases_per_day
+        if (h[bucket_date][c]) {
+          h[bucket_date][c].total_this_week = h[bucket_date][c].total_this_week || 0;
+          // if (c === 'per' && bucket_date === '2016-11-21') { console.log(daily_country_cases_hash[date][c])}
+          h[bucket_date][c].total_this_week += daily_country_cases_hash[date][c].new_cases_per_day
+        } else {
+          console.log(c, 'not found', bucket_date, date);
+        }
       })
 
     } else {
