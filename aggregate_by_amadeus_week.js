@@ -45,7 +45,7 @@ azure_utils.get_file_list(fileSvc, dir, path)
   // Download each file
   // Sum (cases / travels) per week based on diff with previous week
   // Build hash with week date as key and it's stats as val
-  bluebird.reduce(ordered_dates.slice(0, 5), (h, e, i) => {
+  bluebird.reduce(ordered_dates, (h, e, i) => {
     return sum_units_per_week_date(e, i, ordered_dates, h)
     .then(updated_hash => {
       h = updated_hash;
