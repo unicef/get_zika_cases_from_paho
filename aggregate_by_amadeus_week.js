@@ -28,7 +28,7 @@ var provider = args.provider;
 // var fs = require('fs');
 // var moment = require('moment');
 var bluebird = require('bluebird');
-// var jsonfile = require('jsonfile')
+var jsonfile = require('jsonfile')
 // var json_dir = config.json_dir;
 var path = config.azure[provider].path;
 var format = config.azure[provider].format;
@@ -52,11 +52,55 @@ azure_utils.get_file_list(fileSvc, dir, path)
       return h;
     })
   }, {})
-  .then(hash => {
-    console.log(hash);
+  .then(daily_country_cases_hash => {
+    // var bucket_dates = get_bucket_dates(daily_country_cases_hash);
+    var bucket_hash = get_bucket_dates_hash(daily_country_cases_hash);
+    bluebird.each(Object.keys(bucket_hash), date => {
+      var file = config.dir_save + date + '.json';
+      console.log('Printing to', file);
+      return jsonfile.writeFileSync(file, bucket_hash[date] )
+    }, {concurrency: 1})
+    .then(process.exit)
 
   })
 });
+
+
+function get_bucket_dates_hash(daily_country_cases_hash) {
+  return Object.keys(daily_country_cases_hash).reduce((h, date) => {
+    var bucket_date = get_bucket_date(date);
+    if (h[bucket_date]) {
+      //console.log(date, bucket_date, h[bucket_date]['per'].new_cases_per_day)
+      Object.keys(daily_country_cases_hash[date]).forEach(c => {
+        h[bucket_date][c].total_this_week = h[bucket_date][c].total_this_week || 0;
+        // if (c === 'per' && bucket_date === '2016-11-21') { console.log(daily_country_cases_hash[date][c])}
+        h[bucket_date][c].total_this_week += daily_country_cases_hash[date][c].new_cases_per_day
+      })
+
+    } else {
+      h[bucket_date] = daily_country_cases_hash[date];
+
+    }
+    //console.log(date, daily_country_cases_hash[date])
+    return h
+  }, {});
+}
+
+function get_bucket_date(date) {
+  var week_num = moment(String(date), 'YYYY-MM-DD').week();
+  var year = moment(date, 'YYYY').format('YYYY');
+  return moment(String(year), 'YYYY').week(week_num).day(0).add(1, 'days').format('YYYY-MM-DD');
+}
+
+// function get_bucket_dates(hash) {
+//   return Object.keys(hash).reduce((h, d) => {
+//     var week_num = moment(String(d), 'YYYY-MM-DD').week();
+//     var year = moment(d, 'YYYY').format('YYYY');
+//     var bucket_date = moment(String(year), 'YYYY').week(week_num).day(0).add(1, 'days').format('YYYY-MM-DD');
+//     h[bucket_date] = 1;
+//     return h;
+//   }, {});
+// }
 
 function sum_units_per_week_date(filename_date, i, ordered_dates, all_dates_hash) {
   return new Promise((resolve, reject) => {
@@ -114,23 +158,25 @@ function new_and_total_all_countries_per_date(filename, diff_in_days, obj_curren
   if (provider === 'paho') {
     return map_paho(filename, diff_in_days, obj_current, obj_past);
   } else {
-    return map_amadeus(diff_in_days, obj_current);
+    // return map_amadeus(diff_in_days, obj_current);
   }
 }
 
-function map_amadeus(diff_in_days, obj_current) {
-  Object.keys(obj_current.trips).forEach(k => {
-    obj_current.trips[k] = obj_current.trips[k] / diff_in_days;
-  });
-  return obj_current;
-}
+// function map_amadeus(diff_in_days, obj_current) {
+//   Object.keys(obj_current.trips).forEach(k => {
+//     obj_current.trips[k] = obj_current.trips[k] / diff_in_days;
+//   });
+//   return obj_current;
+// }
 
 function map_paho(filename, diff_in_days, obj_current, obj_past) {
   return Object.keys(obj_current.countries).reduce((h, c) => {
     var cases_current = obj_current.countries[c].autochthonous_cases_confirmed;
     var cases_old = obj_past.countries[c] ? obj_past.countries[c].autochthonous_cases_confirmed : 0;
     var cases_new = cases_current - cases_old;
+
     var new_cases_per_day = cases_new / diff_in_days;
+
     h[c] = {
               country: c,
               week_group_date: filename,
