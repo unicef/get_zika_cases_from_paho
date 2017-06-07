@@ -46,6 +46,7 @@ azure_utils.get_file_list(fileSvc, dir, path)
   // Sum (cases / travels) per week based on diff with previous week
   // Build hash with week date as key and it's stats as val
   bluebird.reduce(ordered_dates, (h, e, i) => {
+
     return sum_units_per_week_date(e, i, ordered_dates, h)
     .then(updated_hash => {
       h = updated_hash;
@@ -65,17 +66,29 @@ azure_utils.get_file_list(fileSvc, dir, path)
   })
 });
 
-
 function get_bucket_dates_hash(daily_country_cases_hash) {
   return Object.keys(daily_country_cases_hash).reduce((h, date) => {
     var bucket_date = get_bucket_date(date);
     if (h[bucket_date]) {
-      //console.log(date, bucket_date, h[bucket_date]['per'].new_cases_per_day)
+      // Iterate through days of iso week, and summing total new cases for week
       Object.keys(daily_country_cases_hash[date]).forEach(c => {
+        var epi_week = daily_country_cases_hash[date][c].epi_week;
+        if (h[bucket_date][c].epi_weeks) {
+          if (h[bucket_date][c].epi_weeks) {
+            if (h[bucket_date][c].epi_weeks[epi_week]) {
+              h[bucket_date][c].epi_weeks[epi_week] += 1;
+            } else {
+              h[bucket_date][c].epi_weeks[epi_week] = 1;
+            }
+          }
+        } else {
+          h[bucket_date][c].epi_weeks = {};
+        }
+
         if (h[bucket_date][c]) {
-          h[bucket_date][c].total_this_week = h[bucket_date][c].total_this_week || 0;
-          // if (c === 'per' && bucket_date === '2016-11-21') { console.log(daily_country_cases_hash[date][c])}
-          h[bucket_date][c].total_this_week += daily_country_cases_hash[date][c].new_cases_per_day
+          // If first record of iso week, set to 0.
+          h[bucket_date][c].new_cases_this_week = h[bucket_date][c].new_cases_this_week || 0;
+          h[bucket_date][c].new_cases_this_week += daily_country_cases_hash[date][c].new_cases_per_day
         } else {
           console.log(c, 'not found', bucket_date, date);
         }
@@ -85,7 +98,6 @@ function get_bucket_dates_hash(daily_country_cases_hash) {
       h[bucket_date] = daily_country_cases_hash[date];
 
     }
-    //console.log(date, daily_country_cases_hash[date])
     return h
   }, {});
 }
@@ -126,15 +138,17 @@ function sum_units_per_week_date(filename_date, i, ordered_dates, all_dates_hash
       function(obj_current, callback) {
         var date_previous = ordered_dates[i-1];
         var diff_in_days = moment(filename_date).diff(moment(date_previous), 'days');
+        var new_and_total = {};
         if (provider === 'paho') {
           azure_utils.get_file(fileSvc, dir, path, ordered_dates[i-1], format)
           .then(obj_past => {
-            var new_and_total = new_and_total_all_countries_per_date(filename_date, diff_in_days, obj_current, obj_past);
-            callback(new_and_total, diff_in_days);
+            new_and_total = new_and_total_all_countries_per_date(filename_date, diff_in_days, obj_current, obj_past);
+            console.log(new_and_total, diff_in_days)
+            return callback(new_and_total, diff_in_days);
           });
         } else {
           var new_and_total = new_and_total_all_countries_per_date(filename_date, diff_in_days, obj_current);
-          callback(new_and_total, diff_in_days);
+          return callback(new_and_total, diff_in_days);
         }
       },
 
@@ -173,20 +187,35 @@ function new_and_total_all_countries_per_date(filename, diff_in_days, obj_curren
 //   return obj_current;
 // }
 
-function map_paho(filename, diff_in_days, obj_current, obj_past) {
+function map_paho(filename_date, diff_in_days, obj_current, obj_past) {
   return Object.keys(obj_current.countries).reduce((h, c) => {
-    var cases_current = obj_current.countries[c].autochthonous_cases_confirmed;
+    console.log(c)
+    // All cases in country to date.
+    var cases_cumulative = obj_current.countries[c].autochthonous_cases_confirmed;
+    // If country is in previous week file, assign confirmed cases to cases_old
+    // so you can determine growth since last week.
     var cases_old = obj_past.countries[c] ? obj_past.countries[c].autochthonous_cases_confirmed : 0;
-    var cases_new = cases_current - cases_old;
+    var cases_new = cases_cumulative - cases_old;
 
+    if (cases_new < 0) {
+      // If we notice a negative value, warn about it, and set cases_new to 0.
+      // From Paho doc: As of 6 October, suspected Zika cases were adjusted by the Dominican
+      // Republic Ministry of Public Health after retrospective review. As of 20 October,
+      // confirmed Zika cases were adjusted by the Dominican Republic Ministry of Public
+      // Health after retrospective review
+      console.error('Found negative new cases for', c, 'on', filename_date, cases_new);
+      cases_new = 0;
+    }
+
+    // Divide total new cases by number of days since last file date name.
     var new_cases_per_day = cases_new / diff_in_days;
 
     h[c] = {
               country: c,
-              week_group_date: filename,
-              current: cases_current,
-              new_cases: cases_new,
-              new_cases_per_day: Math.ceil(new_cases_per_day * 100) / 100,
+              epi_week: filename_date,
+              // Cases to date
+              cases_cumulative: cases_cumulative,
+              new_cases_per_day: Math.round(new_cases_per_day) //Math.ceil(new_cases_per_day * 100) / 100,
             };
     return h;
   }, {});
