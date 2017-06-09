@@ -1,6 +1,9 @@
 // node aggregate_by_amadeus_week.js --provider paho
 // node aggregate_by_amadeus_week.js --provider amadeus
 
+
+// This script transforms epi weeks to iso weeks
+
 var ArgumentParser = require('argparse').ArgumentParser;
 var async = require('async');
 var config = require('./config');
@@ -40,92 +43,142 @@ azure_utils.get_file_list(fileSvc, dir, path)
   ordered_dates = files.entries.files.map(e => {
     // return e.name.replace(/.json$/, '');
     return e.name.replace(format, '');
-  }).sort();
+  }).sort()//.filter(e=> {return e.match('2017')});
 
-  // Download each file
-  // Sum (cases / travels) per week based on diff with previous week
-  // Build hash with week date as key and it's stats as val
+  // Download each epi week file
+  // Determine total new cases for epi week by comparing its cumulative cases with previous week's cumulative cases
+  // Use "week 2 day" calculation to assign a number of new cases to each calendar date.
+  // (Basically divide the total new cases by number of days since last epi week. (Sometimes 6, not 7.)
+  // Build hash with iso week date as key and all country stats for that week.
+  // Then write each key value to a file. File name as date (key), content is countries and stats (value).
   bluebird.reduce(ordered_dates, (h, e, i) => {
-
-    return sum_units_per_week_date(e, i, ordered_dates, h)
-    .then(updated_hash => {
-      h = updated_hash;
+    return determine_new_cases_per_epi_week_date(e, i, ordered_dates, h)
+    // updated_epi_week_hash is the countries object, each country updated with number of new cases per day
+    .then(updated_epi_week_hash => {
+      h = updated_epi_week_hash;
       return h;
     })
   }, {})
   .then(daily_country_cases_hash => {
-    // var bucket_dates = get_bucket_dates(daily_country_cases_hash);
-    var bucket_hash = get_bucket_dates_hash(daily_country_cases_hash);
-    bluebird.each(Object.keys(bucket_hash), date => {
+    // Create new hash with iso week start date as key
+    var isoweek_hash = get_isoweek_dates_hash(daily_country_cases_hash);
+    isoweek_hash_updated_cumulative_cases = update_cumulative_cases(isoweek_hash);
+    // Iterate through each iso week start date
+    bluebird.each(Object.keys(isoweek_hash_updated_cumulative_cases), date => {
       var file = config.dir_save + date + '.json';
       console.log('Printing to', file);
-      return jsonfile.writeFileSync(file, bucket_hash[date] )
+      //console.log(isoweek_hash[date])
+      return jsonfile.writeFileSync(file, isoweek_hash_updated_cumulative_cases[date] )
     }, {concurrency: 1})
     .then(process.exit)
 
   })
 });
 
-function get_bucket_dates_hash(daily_country_cases_hash) {
-  return Object.keys(daily_country_cases_hash).reduce((h, date) => {
-    var bucket_date = get_bucket_date(date);
-    if (h[bucket_date]) {
+function update_cumulative_cases(isoweek_hash) {
+  Object.keys(isoweek_hash).forEach(d => {
+    Object.keys(isoweek_hash[d]).forEach(c => {
+      var epi_cases_cumulative = isoweek_hash[d][c].epi_cases_cumulative;
+      isoweek_hash[d][c].cases_cumulative = epi_cases_cumulative.reduce((t, n) => {
+        t+=n;
+        return t;
+      }, 0) / epi_cases_cumulative.length
+      console.log(isoweek_hash[d][c])
+    })
+  })
+  return isoweek_hash;
+}
+
+/**
+ * Create hash with iso weeks as key, and country stats as value
+ * @param{String} daily_country_cases_hash - keys are daily dates, values are all countries with that day's stats
+ * @return{hash} Returns hash with iso_dates as keys
+ */
+function get_isoweek_dates_hash(daily_country_cases_hash) {
+  //console.log(daily_country_cases_hash)
+  // Iterate through each day
+  var keys = Object.keys(daily_country_cases_hash).sort()
+
+  return Object.keys(daily_country_cases_hash).sort().reduce((h, date, i) => {
+    if (i > 0) {
+    }
+
+    // get iso week that day belongs to.
+    var isoweek_start_date = get_isoweek_start_date(date);
+
+    if (!h[isoweek_start_date]) {
+      // This is the first day of iso week
+      // Assign it values for all countries
+      // After this, remaining days with all countries increment their values
+      h[isoweek_start_date] =  daily_country_cases_hash[date] //clone(daily_country_cases_hash[date]);
+
+      h[isoweek_start_date] = add_epi_week_composition(
+        h[isoweek_start_date]
+      )
+    } else {
       // Iterate through days of iso week, and summing total new cases for week
       Object.keys(daily_country_cases_hash[date]).forEach(c => {
-        var epi_week = daily_country_cases_hash[date][c].epi_week;
-        if (h[bucket_date][c].epi_weeks) {
-          if (h[bucket_date][c].epi_weeks) {
-            if (h[bucket_date][c].epi_weeks[epi_week]) {
-              h[bucket_date][c].epi_weeks[epi_week] += 1;
-            } else {
-              h[bucket_date][c].epi_weeks[epi_week] = 1;
-            }
+        if (h[isoweek_start_date][c]) {
+          // If first record of iso week, set to 0.
+          h[isoweek_start_date][c].new_cases_this_week = h[isoweek_start_date][c].new_cases_this_week || 0;
+          h[isoweek_start_date][c].new_cases_this_week += daily_country_cases_hash[date][c].new_cases_per_day
+          var epi_week = daily_country_cases_hash[date][c].epi_week;
+          var epi_cases_cumulative = daily_country_cases_hash[date][c].cases_cumulative;
+
+          if (h[isoweek_start_date][c].epi_cases_cumulative) {
+            h[isoweek_start_date][c].epi_cases_cumulative.push(epi_cases_cumulative)
+          } else {
+            h[isoweek_start_date][c].epi_cases_cumulative = [epi_cases_cumulative];
+          }
+
+          if (h[isoweek_start_date][c].epi_weeks[epi_week]) {
+            h[isoweek_start_date][c].epi_weeks[epi_week] = h[isoweek_start_date][c].epi_weeks[epi_week] + 1;
+          } else {
+            h[isoweek_start_date][c].epi_weeks[epi_week] = 1;
           }
         } else {
-          h[bucket_date][c].epi_weeks = {};
-        }
-
-        if (h[bucket_date][c]) {
-          // If first record of iso week, set to 0.
-          h[bucket_date][c].new_cases_this_week = h[bucket_date][c].new_cases_this_week || 0;
-          h[bucket_date][c].new_cases_this_week += daily_country_cases_hash[date][c].new_cases_per_day
-        } else {
-          console.log(c, 'not found', bucket_date, date);
+          console.log(c, 'not found', isoweek_start_date, date);
         }
       })
-
-    } else {
-      h[bucket_date] = daily_country_cases_hash[date];
-
     }
     return h
   }, {});
 }
 
-function get_bucket_date(date) {
-  var week_num = moment(String(date), 'YYYY-MM-DD').week();
-  var year = moment(date, 'YYYY').format('YYYY');
-  return moment(String(year), 'YYYY').week(week_num).day(0).add(1, 'days').format('YYYY-MM-DD');
+/**
+ * Iso week may contain data from up to two epi weeks.
+ * Keep track of each epi week portion in iso week
+ * in order to aggregate cumulative cases figure
+ * @param{Object} bucket_date_hash - Has country to stats for one iso week date
+ * @param{Object} day_country_cases_hash - Key for every country and value is country stats
+ * @return{hash} Returns bucket_date_hash updated with epi_weeks object:
+ * keys are epi week dates and value is number times seen
+ */
+function add_epi_week_composition(isoweek_start_day_hash) {
+  Object.keys(isoweek_start_day_hash).forEach(c => {
+    // The epi week start date this country on this day belongs to
+    var epi_week = isoweek_start_day_hash[c].epi_week;
+    var epi_cases_cumulative = isoweek_start_day_hash[c].cases_cumulative;
+    isoweek_start_day_hash[c].epi_weeks = {};
+    isoweek_start_day_hash[c].epi_cases_cumulative = [epi_cases_cumulative];
+    isoweek_start_day_hash[c].epi_weeks[epi_week] = 1;
+  })
+  return isoweek_start_day_hash;
 }
 
-// function get_bucket_dates(hash) {
-//   return Object.keys(hash).reduce((h, d) => {
-//     var week_num = moment(String(d), 'YYYY-MM-DD').week();
-//     var year = moment(d, 'YYYY').format('YYYY');
-//     var bucket_date = moment(String(year), 'YYYY').week(week_num).day(0).add(1, 'days').format('YYYY-MM-DD');
-//     h[bucket_date] = 1;
-//     return h;
-//   }, {});
-// }
+function get_isoweek_start_date(date) {
 
-function sum_units_per_week_date(filename_date, i, ordered_dates, all_dates_hash) {
+  //console.log(date, moment(String(date), 'YYYY-MM-DD').startOf('isoWeek').format('YYYY-MM-DD'))
+  return moment(String(date), 'YYYY-MM-DD').startOf('isoWeek').format('YYYY-MM-DD');
+}
+
+function determine_new_cases_per_epi_week_date(filename_date, i, ordered_dates, all_dates_hash) {
   return new Promise((resolve, reject) => {
     // Ignore first (ealiest) file for now.
     // There's now way to divide it into days
     if (i === 0) {
       return resolve(all_dates_hash);
     }
-
     async.waterfall([
       // Get this date's data
       function(callback) {
@@ -138,41 +191,48 @@ function sum_units_per_week_date(filename_date, i, ordered_dates, all_dates_hash
       function(obj_current, callback) {
         var date_previous = ordered_dates[i-1];
         var diff_in_days = moment(filename_date).diff(moment(date_previous), 'days');
-        var new_and_total = {};
+        var new_and_cumulative = {};
         if (provider === 'paho') {
           azure_utils.get_file(fileSvc, dir, path, ordered_dates[i-1], format)
           .then(obj_past => {
-            new_and_total = new_and_total_all_countries_per_date(filename_date, diff_in_days, obj_current, obj_past);
-            console.log(new_and_total, diff_in_days)
-            return callback(new_and_total, diff_in_days);
+            new_and_cumulative = update_country_objects_with_num_new_cases(filename_date, diff_in_days, obj_current, obj_past);
+            return callback(new_and_cumulative, diff_in_days);
           });
         } else {
-          var new_and_total = new_and_total_all_countries_per_date(filename_date, diff_in_days, obj_current);
-          return callback(new_and_total, diff_in_days);
+          // // In case we have to do this for amadeus
+          // var new_and_cumulative = update_country_objects_with_num_new_cases(filename_date, diff_in_days, obj_current);
+          // return callback(new_and_cumulative, diff_in_days);
         }
       },
 
-    ], (new_and_total, diff_in_days) => {
-      spread_data_across_week_days(filename_date, new_and_total, all_dates_hash, diff_in_days)
+    ], (new_and_cumulative, diff_in_days) => {
+      spread_data_across_week_days(filename_date, new_and_cumulative, all_dates_hash, diff_in_days)
       .then(resolve);
       }, 1);
   })
 }
 
-function spread_data_across_week_days(filename_date, new_and_total, all_dates_hash, diff_in_days) {
+function spread_data_across_week_days(filename_date, new_and_cumulative, all_dates_hash, diff_in_days) {
+
   return new Promise((resolve, reject) => {
     var range_of_days = Array(diff_in_days).fill().map((_, i) => i++);
 
-    var this_week = range_of_days.reduce((h, n) => {
-      h[moment(filename_date).subtract(n, 'days').format('YYYY-MM-DD')] = new_and_total;
-      return h;
-    }, {})
+
+    // if (filename_date === '2017-04-27'){
+      var this_week = range_of_days.reduce((h, n) => {
+
+        h[moment(filename_date).subtract(n, 'days').format('YYYY-MM-DD')] = clone(new_and_cumulative);
+        //   {},
+        //   new_and_cumulative
+        // );
+        return h;
+      }, {})
 
     resolve(Object.assign(all_dates_hash, this_week));
   })
 }
 
-function new_and_total_all_countries_per_date(filename, diff_in_days, obj_current, obj_past) {
+function update_country_objects_with_num_new_cases(filename, diff_in_days, obj_current, obj_past) {
   if (provider === 'paho') {
     return map_paho(filename, diff_in_days, obj_current, obj_past);
   } else {
@@ -187,9 +247,22 @@ function new_and_total_all_countries_per_date(filename, diff_in_days, obj_curren
 //   return obj_current;
 // }
 
+/**
+ * For every country in current object, get total new cases by comparing with
+ * last weeks cumulative cases.
+ * Update all country objects and return.
+ * @param{String} filename_date - epi date file name
+ * @param{String} diff_in_days - difference in days between epi date files: 6 or 7.
+ * @param{String} obj_current - current epi week's data per country being processed
+ * @param{String} obj_past - previous epi week's data per country being processed
+ * @return{Promise} Fulfilled when records are returned
+ */
 function map_paho(filename_date, diff_in_days, obj_current, obj_past) {
+   // { date: '2017-01-12',
+   //  countries:
+   //   { can:
+   //      { country: 'Canada',
   return Object.keys(obj_current.countries).reduce((h, c) => {
-    console.log(c)
     // All cases in country to date.
     var cases_cumulative = obj_current.countries[c].autochthonous_cases_confirmed;
     // If country is in previous week file, assign confirmed cases to cases_old
@@ -219,4 +292,24 @@ function map_paho(filename_date, diff_in_days, obj_current, obj_past) {
             };
     return h;
   }, {});
+}
+
+function clone(obj) {
+  if (obj === null || typeof(obj) !== 'object' || 'isActiveClone' in obj)
+    return obj;
+
+  if (obj instanceof Date)
+    var temp = new obj.constructor(); //or new Date(obj);
+  else
+    var temp = obj.constructor();
+
+  for (var key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      obj['isActiveClone'] = null;
+      temp[key] = clone(obj[key]);
+      delete obj['isActiveClone'];
+    }
+  }
+
+  return temp;
 }
