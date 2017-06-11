@@ -1,21 +1,17 @@
 // This script transforms epi weeks to iso weeks
-// Run: node aggregate_by_amadeus_week.js --provider paho
+// Run: node epi_week_2_is_week.js --provider paho
 
 // Use argument parser to to identity data source
 // currently only use case data from pago.org
 var ArgumentParser = require('argparse').ArgumentParser;
 var async = require('async');
-var azure_storage = require('azure-storage');
 var bluebird = require('bluebird');
+var fs = bluebird.promisifyAll(require('fs'));
+var jsonfile = require('jsonfile');
+var jsonread = bluebird.promisify(jsonfile.readFile);
 var config = require('./config');
 var jsonfile = require('jsonfile')
 var moment = require('moment');
-
-// For fetching and storing files on azure
-var azure_utils = require('./lib/azure_helper');
-var storage_account = config.azure.storage_account;
-var azure_key = config.azure.key1;
-var fileSvc = azure_storage.createFileService(storage_account, azure_key);
 
 var parser = new ArgumentParser({
   version: '0.0.1',
@@ -32,17 +28,24 @@ var args = parser.parseArgs();
 var provider = args.provider;
 
 // Path to store data after transformed to iso week format
-var path = config.azure[provider].path;
-var format = config.azure[provider].format;
-var dir = config.azure[provider].directory;
+var dir = config.dir;
 
 // Get list of case files previously fetched from paho and stored in a directory in key value format.
-azure_utils.get_file_list(fileSvc, dir, path)
+var getFiles = function () {
+    return fs.readdirAsync(dir + provider + '/json');
+};
+
+var getContent = function (dir, filename) {
+    return fs.readFileAsync(directory + "/" + filename, "utf8");
+};
+
+getFiles()
 .then(files => {
+  console.log(files);
   // Ordered by date: earliest to latest.
-  // Not necessary, just good for spot checking
-  ordered_dates = files.entries.files.map(e => {
-    return e.name.replace(format, '');
+  // Facilitates fetching previous file for comparison.
+  ordered_dates = files.map(e => {
+    return e.replace('.json', '');
   }).sort()
 
   // Download each epi week file
@@ -180,7 +183,7 @@ function determine_new_cases_per_epi_week_date(filename_date, i, ordered_dates, 
     async.waterfall([
       // Get this date's data
       function(callback) {
-        azure_utils.get_file(fileSvc, dir, path, ordered_dates[i], format)
+        jsonread(dir + provider + '/json/' + ordered_dates[i] + '.json')
         .then(obj => {
           callback(null, obj);
         });
@@ -192,7 +195,7 @@ function determine_new_cases_per_epi_week_date(filename_date, i, ordered_dates, 
         console.log(filename_date, date_previous, diff_in_days, '!!!!')
         var new_and_cumulative = {};
         if (provider === 'paho') {
-          azure_utils.get_file(fileSvc, dir, path, ordered_dates[i-1], format)
+        jsonread(dir + provider + '/json/' + ordered_dates[i-1] + '.json')
           .then(obj_past => {
             new_and_cumulative = update_country_objects_with_num_new_cases(filename_date, diff_in_days, obj_current, obj_past);
             return callback(new_and_cumulative, diff_in_days);
