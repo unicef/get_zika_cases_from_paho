@@ -1,18 +1,21 @@
-// node aggregate_by_amadeus_week.js --provider paho
-// node aggregate_by_amadeus_week.js --provider amadeus
-
-
 // This script transforms epi weeks to iso weeks
+// Run: node aggregate_by_amadeus_week.js --provider paho
 
+// Use argument parser to to identity data source
+// currently only use case data from pago.org
 var ArgumentParser = require('argparse').ArgumentParser;
 var async = require('async');
-var config = require('./config');
 var azure_storage = require('azure-storage');
+var bluebird = require('bluebird');
+var config = require('./config');
+var jsonfile = require('jsonfile')
+var moment = require('moment');
+
+// For fetching and storing files on azure
 var azure_utils = require('./lib/azure_helper');
 var storage_account = config.azure.storage_account;
 var azure_key = config.azure.key1;
 var fileSvc = azure_storage.createFileService(storage_account, azure_key);
-var moment = require('moment');
 
 var parser = new ArgumentParser({
   version: '0.0.1',
@@ -28,22 +31,19 @@ parser.addArgument(
 var args = parser.parseArgs();
 var provider = args.provider;
 
-// var fs = require('fs');
-// var moment = require('moment');
-var bluebird = require('bluebird');
-var jsonfile = require('jsonfile')
-// var json_dir = config.json_dir;
+// Path to store data after transformed to iso week format
 var path = config.azure[provider].path;
 var format = config.azure[provider].format;
 var dir = config.azure[provider].directory;
-// Get list of case files.
+
+// Get list of case files previously fetched from paho and stored in a directory in key value format.
 azure_utils.get_file_list(fileSvc, dir, path)
 .then(files => {
-  // Make sure list is ordered by date: earliest to latest.
+  // Ordered by date: earliest to latest.
+  // Not necessary, just good for spot checking
   ordered_dates = files.entries.files.map(e => {
-    // return e.name.replace(/.json$/, '');
     return e.name.replace(format, '');
-  }).sort()//.filter(e=> {return e.match('2017')});
+  }).sort()
 
   // Download each epi week file
   // Determine total new cases for epi week by comparing its cumulative cases with previous week's cumulative cases
@@ -167,8 +167,6 @@ function add_epi_week_composition(isoweek_start_day_hash) {
 }
 
 function get_isoweek_start_date(date) {
-
-  //console.log(date, moment(String(date), 'YYYY-MM-DD').startOf('isoWeek').format('YYYY-MM-DD'))
   return moment(String(date), 'YYYY-MM-DD').startOf('isoWeek').format('YYYY-MM-DD');
 }
 
@@ -191,6 +189,7 @@ function determine_new_cases_per_epi_week_date(filename_date, i, ordered_dates, 
       function(obj_current, callback) {
         var date_previous = ordered_dates[i-1];
         var diff_in_days = moment(filename_date).diff(moment(date_previous), 'days');
+        console.log(filename_date, date_previous, diff_in_days, '!!!!')
         var new_and_cumulative = {};
         if (provider === 'paho') {
           azure_utils.get_file(fileSvc, dir, path, ordered_dates[i-1], format)
@@ -216,15 +215,8 @@ function spread_data_across_week_days(filename_date, new_and_cumulative, all_dat
 
   return new Promise((resolve, reject) => {
     var range_of_days = Array(diff_in_days).fill().map((_, i) => i++);
-
-
-    // if (filename_date === '2017-04-27'){
       var this_week = range_of_days.reduce((h, n) => {
-
         h[moment(filename_date).subtract(n, 'days').format('YYYY-MM-DD')] = clone(new_and_cumulative);
-        //   {},
-        //   new_and_cumulative
-        // );
         return h;
       }, {})
 
