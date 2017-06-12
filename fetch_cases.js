@@ -13,7 +13,7 @@ request('http://www.paho.org/hq/index.php?option=com_content&view=article&id=123
      return l.match('doc_view')
    })
 
-  fs.readdir(config.raw_dir, (err, files) => {
+  fs.readdir(config.dir_raw, (err, files) => {
     bluebird.each(urls, url => {
       console.log(url)
       return fetch_doc(url, files);
@@ -51,7 +51,7 @@ function fetch_doc(url, files) {
         if (files.indexOf(file) === -1) {
           // This file has not been downloaded before
           console.log('download new', file)
-          fs.writeFile(config.raw_dir + title.replace('xls', 'json'), JSON.stringify(worksheet), (err, response) => {
+          fs.writeFile(config.dir_raw + title.replace('xls', 'json'), JSON.stringify(worksheet), (err, response) => {
             return resolve();
           });
         } else {
