@@ -15,15 +15,21 @@ parser.addArgument(
 );
 
 parser.addArgument(
-  ['-d', '--dir'],
-  {help: 'Name of directory to find and save files to'}
+  ['-i', '--dir_iso'],
+  {help: 'Name of directory ISO directory to save aggregations to'}
+);
+
+parser.addArgument(
+  ['-e', '--dir_epi'],
+  {help: 'Name of Epi directory with original paho json files'}
 );
 
 var args = parser.parseArgs();
 var provider = args.provider;
-var dir = args.dir || config.dir;
+var dir_iso = args.dir_iso || config.dir_iso;
+var dir_epi = args.dir_epi || config.dir_epi;
 
-epi2iso.epi_2_iso(dir, provider)
+epi2iso.epi_2_iso(dir_epi, dir_iso, provider)
 .then(response => {
   console.log(response);
   process.exit();
