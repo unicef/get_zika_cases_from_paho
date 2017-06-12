@@ -3,9 +3,9 @@ var moment = require('moment');
 var bluebird = require('bluebird');
 var config = require('./config');
 var jsonfile = require('jsonfile')
-var raw_dir = config.raw_dir;
-var json_dir = config.json_dir;
-var case_files = fs.readdirSync(raw_dir);
+var dir_raw = config.dir_raw;
+var dir_epi = config.dir_epi;
+var case_files = fs.readdirSync(dir_raw);
 var country_codes = require('./country_codes');
 var index = config.index;
 
@@ -13,10 +13,10 @@ var promisifiedRead = bluebird.promisify(jsonfile.readFile);
 bluebird.each(case_files.filter(f => { return f.match(/^\d{4}/)}), f => {
   console.log(f);
   var date = moment(f.match(/\d{4}-[a-z]{3}-\d+/)[0]).format('YYYY-MM-DD');
-  //return jsonfile.readFile(raw_dir + f, function(err, obj) {
+  //return jsonfile.readFile(dir_raw + f, function(err, obj) {
   //  return summarize(obj, date)
   //})
-  return promisifiedRead(raw_dir + f).then(function(obj) {
+  return promisifiedRead(dir_raw + f).then(function(obj) {
     return summarize(obj, date)
   });
 }, {concurrency: 1}).then(() => {console.log('done');process.exit();});
@@ -55,10 +55,10 @@ function summarize(worksheet, date) {
           countries[country_codes[value]] = stats;
         }
       }
-          h.countries = countries; 
+          h.countries = countries;
           return h;
     }, {})
-    fs.writeFile(json_dir + date + '.json', JSON.stringify(object), err => {
+    fs.writeFile(dir_epi + date + '.json', JSON.stringify(object), err => {
       if (err) {
         console.log(err)
         return reject(err);
