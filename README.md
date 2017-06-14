@@ -43,4 +43,4 @@ Now group by ISO week:
 Friday the 6th, Saturday the 7th, and Sunday the 8th of January, 2017 all fall within the ISO week starting Monday, January 2. The remaining days including the 9th, 10th, 11th, and 12th, fall within the ISO week of Monday, January 9.
 
 
-    node aggregate_by_amadeus_week.js --provider paho
+  node group_paho_by_iso.js --provider paho
