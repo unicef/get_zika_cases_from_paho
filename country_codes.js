@@ -1,6 +1,6 @@
 module.exports = {
-  'Bolivia (Plurinational State of': 'bol',
-  'Venezuela (Bolivarian Republic of': 'ven',
+  'Bolivia (Plurinational State of)': 'bol',
+  'Venezuela (Bolivarian Republic of)': 'ven',
   'Virgin Islands (UK)': 'vgb',
   'United States of America': 'usa',
   'Virgin Islands (US)': 'vir',
