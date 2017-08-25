@@ -12,11 +12,12 @@ var index = config.index;
 var promisifiedRead = bluebird.promisify(jsonfile.readFile);
 bluebird.each(case_files.filter(f => { return f.match(/^\d{4}/)}), f => {
   console.log(f);
-  var date = moment(f.match(/\d{4}-[a-z]{3}-\d+/)[0]).format('YYYY-MM-DD');
+  file_name_copy = f.replace('-ago-', '-aug-')
+  var date = moment(file_name_copy.match(/\d{4}-[A-Za-z]{3,4}-\d+/)[0]).format('YYYY-MM-DD');
   //return jsonfile.readFile(dir_raw + f, function(err, obj) {
   //  return summarize(obj, date)
   //})
-  return promisifiedRead(dir_raw + f).then(function(obj) {
+  return promisifiedRead(dir_raw + f).then(obj => {
     return summarize(obj, date)
   });
 }, {concurrency: 1}).then(() => {console.log('done');process.exit();});
