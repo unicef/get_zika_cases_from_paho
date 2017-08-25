@@ -1,3 +1,5 @@
+// node group_paho_by_iso.js -p paho
+
 var config = require('./config');
 var epi2iso = require('./lib/epi2iso');
 // Use argument parser to to identity data source
@@ -25,7 +27,7 @@ parser.addArgument(
 );
 
 var args = parser.parseArgs();
-var provider = args.provider;
+var provider = args.provider || 'paho';
 var dir_iso = args.dir_iso || config.dir_iso;
 var dir_epi = args.dir_epi || config.dir_epi;
 
