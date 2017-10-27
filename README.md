@@ -1,10 +1,22 @@
 ##### Get zika case files from Paho
+Each Epi week, the Pan American Health Organization posts a new excel file containing the number of new cases per country. Code in this repository fetches that data to store in JSON, and also aggregates by ISO week in order to compare with other data sets.
 
-- Download excel files from paho.org that contain global zika cases by epi week.
-- Convert each file to key value format to facilitate analysis
-- Transform epi week to ISO week.
+### Setup
+```
+git clone git@github.com:unicef/get_zika_cases_from_paho.git
+cd get_zika_cases_from_paho
+cp config-sample.js config.js
+npm install
 
+// Download excel files to local storage
+node fetch_cases.js
 
+// Create copies in JSON
+node summarize_cases.js
+
+// Aggregate by iso week
+node group_paho_by_iso.js --provider paho
+```
     cp config_sample.js config.js
 
 ##### Download
@@ -44,5 +56,3 @@ Friday the 6th, Saturday the 7th, and Sunday the 8th of January, 2017 all fall w
 
 ###### test
     mocha ./lib/epi2iso_test.js
-###### run    
-    node group_paho_by_iso.js --provider paho
