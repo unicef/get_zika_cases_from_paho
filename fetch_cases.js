@@ -1,15 +1,15 @@
-var bluebird = require('bluebird');
-var request = require('request');
-var getHrefs = require('get-hrefs');
-var fs = require('fs');
-var base_url = 'http://www.paho.org';
-var config = require('./config');
-var request = require('request');
-var XLSX = require('xlsx');
+const bluebird = require('bluebird');
+const request = require('request');
+const getHrefs = require('get-hrefs');
+const fs = require('fs');
+const base_url = 'http://www.paho.org';
+const config = require('./config');
+const XLSX = require('xlsx');
 
-request('http://www.paho.org/hq/index.php?option=com_content&view=article&id=12390&Itemid=42090&lang=en', function (error, response, body) {
-
-   var urls = getHrefs(body).filter(l => {
+request(
+  'http://www.paho.org/hq/index.php?option=com_content&view=article&id=12390&Itemid=42090&lang=en',
+  (error, response, body) => {
+   let urls = getHrefs(body).filter(l => {
      return l.match('doc_view')
    })
 
@@ -21,37 +21,50 @@ request('http://www.paho.org/hq/index.php?option=com_content&view=article&id=123
     .then(() => {
       console.log('Done!');
       process.exit();
-    })  });
-
+    })
+  });
 });
 
+/**
+ * Verifies if user has required level of authorisation
+ * @param  {string} url
+ * @param  {array} files auth and security definations from swagger file
+ * @return {Promise}
+ */
 function fetch_doc(url, files) {
   return new Promise((resolve, reject) => {
-    var options = {
+    let options = {
       url: base_url + url,
       headers: {
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.' +
+         'spreadsheetml.sheet'
       },
       encoding: null
     };
 
     request.get(options, (err, res, body) => {
-      var title = res.headers['content-disposition'].match(/filename="(.+?)";/)[1];
+      let title = res.headers['content-disposition'].match(
+        /filename="(.+?)";/
+      )[1];
       if (title.match(/xls$/)) {
-        var arraybuffer = body;
+        let arraybuffer = body;
         /* convert data to binary string */
-        var data = arraybuffer;
-        //var data = new Uint8Array(arraybuffer);
-        var arr = new Array();
-        for (var i = 0; i != data.length; ++i) arr[i] = String.fromCharCode(data[i]);
-        var bstr = arr.join("");
-        var workbook = XLSX.read(bstr, { type: "binary" });
-        var worksheet = workbook.Sheets['2015 ENG'];
-        var file = title.replace('xls', 'json');
+        let data = arraybuffer;
+        // var data = new Uint8Array(arraybuffer);
+        let arr = [];
+        for (let i = 0;
+          i != data.length;
+          ++i) arr[i] = String.fromCharCode(data[i]);
+        let bstr = arr.join('');
+        let workbook = XLSX.read(bstr, {type: 'binary'});
+        let worksheet = workbook.Sheets['2015 ENG'];
+        let file = title.replace('xls', 'json');
         if (files.indexOf(file) === -1) {
           // This file has not been downloaded before
           console.log('download new', file)
-          fs.writeFile(config.dir_raw + title.replace('xls', 'json'), JSON.stringify(worksheet), (err, response) => {
+          fs.writeFile(config.dir_raw + title.replace('xls', 'json'),
+          JSON.stringify(worksheet),
+          (error, response) => {
             return resolve();
           });
         } else {
@@ -64,6 +77,5 @@ function fetch_doc(url, files) {
         return resolve();
       }
     });
-
   })
 }
