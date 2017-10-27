@@ -6,6 +6,7 @@ Each [Epi week](http://www.cmmcp.org/epiweek.htm), the Pan American Health Organ
 git clone git@github.com:unicef/get_zika_cases_from_paho.git
 cd get_zika_cases_from_paho
 cp config-sample.js config.js
+bash setup.sh
 npm install
 ```
 ##### Download excel files
