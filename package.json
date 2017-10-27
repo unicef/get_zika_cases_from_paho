@@ -4,7 +4,8 @@
   "description": "cp config_sample.js config.js",
   "main": "config.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+      "precommit": "./preCommitChecks.sh"
   },
   "repository": {
     "type": "git",
@@ -32,6 +33,10 @@
   },
   "devDependencies": {
     "eslint": "^3.19.0",
-    "mocha": "^3.4.2"
+    "eslint-config-google": "^0.9.1",
+    "husky": "^0.14.3",
+    "install": "^0.10.1",
+    "mocha": "^3.4.2",
+    "npm": "^5.5.1"
   }
 }
