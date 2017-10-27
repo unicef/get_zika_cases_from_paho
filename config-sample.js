@@ -1,7 +1,7 @@
 module.exports = {
-  dir_iso: '../../mnt/zika/paho/iso/',
-  dir_raw: '../../mnt/zika/paho/raw/',
-  dir_epi: '../../mnt/zika/paho/epi/',
+  dir_iso: './data/paho/iso/',
+  dir_raw: './data/paho/raw/',
+  dir_epi: './data/paho/epi/',
   index: {
     B: 'autochthonous_cases_suspected',
     C: 'autochthonous_cases_confirmed',
