@@ -22,7 +22,9 @@ Read raw files and transform to usable json objects useful for running models.
 ##### Aggregate by ISO week
 To group new Epi week cases by ISO week, we use a simple “week to day” algorithm — i.e., take the total number of new cases, divide it by the number of days since the publication of the last Paho file, and assign that value to each day leading up to the end of that epi week.
 
-Read [here](https://medium.com/@mikefabrikant/epi-week-to-iso-week-overlaying-virus-case-data-with-mobility-b071fe431811) for an indepth explanation.
+For an indepth explanation read [Epi week to ISO week - overlaying virus case data with mobility.](https://medium.com/@mikefabrikant/epi-week-to-iso-week-overlaying-virus-case-data-with-mobility-b071fe431811).
 
 ###### test
     mocha ./lib/epi2iso_test.js
+###### run    
+    node group_paho_by_iso.js --provider paho
