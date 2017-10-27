@@ -8,15 +8,6 @@ cd get_zika_cases_from_paho
 cp config-sample.js config.js
 npm install
 ```
-
-// Create copies in JSON
-node summarize_cases.js
-
-// Aggregate by iso week
-node group_paho_by_iso.js --provider paho
-
-    cp config_sample.js config.js
-
 ##### Download excel files
 Download excel files with international cases by epi week to raw_dir (config.js). files are saved as json since had difficulty saving as xls.
 
